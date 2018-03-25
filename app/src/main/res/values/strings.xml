@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">YellowCook</string>
+    <string name="button_recorder">录屏</string>
+    <string name="button_change">切换</string>
+</resources>
