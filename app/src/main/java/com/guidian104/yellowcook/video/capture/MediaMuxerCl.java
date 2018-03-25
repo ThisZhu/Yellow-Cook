@@ -14,8 +14,12 @@ import java.nio.ByteBuffer;
 
 @TargetApi(18)
 public class MediaMuxerCl {
-    public static final String outputPath= Environment.getExternalStorageDirectory().getPath()+"/bb.mp4";
+    public static String outputPath= Environment.getExternalStorageDirectory().getPath()+"/bb.mp4";
     private static final MediaMuxerCl mediaMuxerCl=new MediaMuxerCl();
+    private boolean videoStatus=false;
+    private boolean audioStatus=false;
+    private boolean muxerStatus=false;
+
     private MediaMuxer mediaMuxer;
 
     public static MediaMuxerCl getMediaMuxerCl(){
@@ -35,10 +39,36 @@ public class MediaMuxerCl {
         return mediaMuxer;
     }
 
+    public void setAudioStatus(boolean audioStatus){
+        this.audioStatus=audioStatus;
+    }
+
+    public void setVideoStatus(boolean videoStatus){
+        this.videoStatus=videoStatus;
+    }
 
     public void startMuxer(){
         android.util.Log.w("========mediaMuxer","starting");
-        mediaMuxer.start();
+        if(!audioStatus)
+            android.util.Log.w("===audioStatus false","wait starting");
+        if(!videoStatus)
+            android.util.Log.w("===videoStatus false","wait starting");
+        if(audioStatus&&videoStatus&&!muxerStatus) {
+            android.util.Log.w("===video and audio","is started ,mediaMuxer start");
+            mediaMuxer.start();
+            muxerStatus=true;
+        }
+    }
+
+    public void stopMuxuer(){
+        audioStatus=false;
+        videoStatus=false;
+        muxerStatus=false;
+        if(mediaMuxer==null)
+            return;
+        android.util.Log.w("===ediaMuxer!=null","mediaMuxer stop");
+        mediaMuxer.stop();
+        mediaMuxer.release();
     }
 
 
@@ -48,12 +78,14 @@ public class MediaMuxerCl {
 
     public void writeVideoData(int videoTrackIndex,ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo){
         android.util.Log.w("========writeVideoData","starting");
-        mediaMuxer.writeSampleData(videoTrackIndex,byteBuffer,bufferInfo);
+        if(muxerStatus)
+             mediaMuxer.writeSampleData(videoTrackIndex,byteBuffer,bufferInfo);
     }
 
     public void writeAudioData(int audioTrackIndex, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo){
         android.util.Log.w("========writeAudioData","starting");
-        mediaMuxer.writeSampleData(audioTrackIndex,byteBuffer,bufferInfo);
+        if(muxerStatus)
+             mediaMuxer.writeSampleData(audioTrackIndex,byteBuffer,bufferInfo);
     }
 
 

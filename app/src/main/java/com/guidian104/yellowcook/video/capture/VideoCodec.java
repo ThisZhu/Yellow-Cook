@@ -12,6 +12,10 @@ import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
+import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreKitKatVersion;
+import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreLollipopVersion;
+
 /**
  * Created by zhudi on 2018/3/20.
  */
@@ -48,7 +52,7 @@ public class VideoCodec {
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE,width*height*5);
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE,30);
-        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,1);
+        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,10);
         try {
             mediaCodec=MediaCodec.createEncoderByType("video/avc");
         } catch (IOException e) {
@@ -56,7 +60,7 @@ public class VideoCodec {
         }
         mediaCodec.configure(mediaFormat,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
-        videoTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
+       // videoTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
     }
 
     @TargetApi(16)
@@ -88,33 +92,55 @@ public class VideoCodec {
                 if(queueVideo!=null&&queueVideo.size()>0){
                     inputBytes=queueVideo.poll();
                 }
-                if(inputBytes!=null){
-                    ByteBuffer[] inputBuffers=mediaCodec.getInputBuffers();
-                    ByteBuffer[] outputBuffers=mediaCodec.getInputBuffers();
-                    int inputBufferIndex=mediaCodec.dequeueInputBuffer(0);
-                    if(inputBufferIndex>=0){
-                        pts=computePositionTime(generalIndex);
-                        ByteBuffer inputBuffer=inputBuffers[inputBufferIndex];
-                        inputBuffer.clear();
-                        inputBuffer.put(inputBytes);
-                        if(generalIndex==0) {
-                            mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, MediaCodec.BUFFER_FLAG_KEY_FRAME);
-                        }else {
-                            mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, 0);
-
-                        }
-                        ++generalIndex;
+                if(inputBytes==null)
+                    continue;
+                ByteBuffer[] inputBuffers=mediaCodec.getInputBuffers();
+                ByteBuffer[] outputBuffers=mediaCodec.getInputBuffers();
+                int inputBufferIndex=mediaCodec.dequeueInputBuffer(0);
+                if(inputBufferIndex>=0){
+                    pts=computePositionTime(generalIndex);
+                    ByteBuffer inputBuffer;
+                    ///////////////// 如果API小于21，APP需要重新绑定编码器的输入缓存区；
+                    ///////////////// 如果API大于21，则无需处理INFO_OUTPUT_BUFFERS_CHANGED
+                    if(isMoreLollipopVersion()){
+                        inputBuffer=mediaCodec.getInputBuffer(inputBufferIndex);
+                    }else {
+                        inputBuffer = inputBuffers[inputBufferIndex];
                     }
-                    int outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
-                    while (outputBufferIndex>=0){
-                        ByteBuffer outputBuffer=outputBuffers[outputBufferIndex];
-                        outputBuffer.position(bufferInfo.offset);
-                        outputBuffer.limit(bufferInfo.offset+bufferInfo.size);
-                        onEncoderVideoFrame(outputBuffer,bufferInfo);
-                        mediaCodec.releaseOutputBuffer(outputBufferIndex,false);
-                        outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
-                    }
+                    inputBuffer.clear();
+                    inputBuffer.put(inputBytes);
+                    mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, 0);
+                    ++generalIndex;
                 }
+                int outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
+                do{
+                    ByteBuffer outputBuffer;
+                    if(outputBufferIndex==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+                        videoTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
+                        mediaMuxerCl.setVideoStatus(true);
+                        mediaMuxerCl.startMuxer();
+                    }else if(outputBufferIndex==MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED){
+                        outputBuffers=mediaCodec.getOutputBuffers();
+                    }else if(outputBufferIndex>=0){
+                        if((bufferInfo.flags& BUFFER_FLAG_CODEC_CONFIG)!=0){
+                            bufferInfo.size=0;
+                        }
+                        if(bufferInfo.size!=0){
+                            if (!isMoreLollipopVersion()) {
+                                outputBuffer = outputBuffers[outputBufferIndex];
+                            } else {
+                                outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
+                            }
+                            if (!isMoreKitKatVersion()) {
+                                outputBuffer.position(bufferInfo.offset);
+                                outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
+                            }
+                            onEncoderVideoFrame(outputBuffer, bufferInfo);
+                            mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
+                        }
+                    }
+                    outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
+                }while (outputBufferIndex>=0);
             }
         }
     };

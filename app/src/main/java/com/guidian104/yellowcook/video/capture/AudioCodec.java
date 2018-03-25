@@ -7,11 +7,14 @@ import android.media.MediaFormat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreKitKatVersion;
+import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreLollipopVersion;
+
 /**
  * Created by zhudi on 2018/3/24.
  */
 
-@TargetApi(16)
+@TargetApi(21)
 public class AudioCodec {
 
     private int framerate;
@@ -39,7 +42,6 @@ public class AudioCodec {
         mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE,100*1024);
         mediaCodec.configure(mediaFormat,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
         mediaCodec.start();
-        audioTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
     }
 
     public void onEncoderAudio(byte[] audioByte){
@@ -51,17 +53,34 @@ public class AudioCodec {
         android.util.Log.w("=====inputByteBuffers:",Integer.toString(inputByteBuffers.length));
         int inputBufferId=mediaCodec.dequeueInputBuffer(0);
         if (inputBufferId>=0){
-            ByteBuffer byteBuffer=inputByteBuffers[inputBufferId];
+            ByteBuffer byteBuffer;
+            if(isMoreLollipopVersion()) {
+                byteBuffer=mediaCodec.getInputBuffer(inputBufferId);
+            }else {
+                byteBuffer = inputByteBuffers[inputBufferId];
+            }
             byteBuffer.clear();
             byteBuffer.put(audioByte,0,audioByte.length);
             mediaCodec.queueInputBuffer(inputBufferId,0,audioByte.length,computePositionTime(frameIndex),0);
             ++frameIndex;
         }
         int outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,0);
+        if(outputBufferId==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+            audioTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
+            mediaMuxerCl.setAudioStatus(true);
+            mediaMuxerCl.startMuxer();
+        }
         while (outputBufferId>=0){
-            ByteBuffer buffer=outputByteBuffers[outputBufferId];
-            buffer.position(bufferInfo.offset);
-            buffer.limit(bufferInfo.offset+bufferInfo.size);
+            ByteBuffer buffer;
+            if(isMoreLollipopVersion()){
+                buffer=mediaCodec.getOutputBuffer(outputBufferId);
+            }else {
+                buffer=outputByteBuffers[outputBufferId];
+            }
+            if(!isMoreKitKatVersion()) {
+                buffer.position(bufferInfo.offset);
+                buffer.limit(bufferInfo.offset + bufferInfo.size);
+            }
             onEncoderAacFrame(buffer);
             mediaCodec.releaseOutputBuffer(outputBufferId,false);
             outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,0);

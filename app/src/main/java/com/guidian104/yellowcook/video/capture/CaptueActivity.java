@@ -79,6 +79,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
     private AudioCapture audioCapture=AudioCapture.getInstace();
     private static final int  sampleRateHZ=44100;
     private static final int frameRate=30;
+    private static AlgorithmHelper algorithmHelper=AlgorithmHelper.getAlgorithmHelper();
 
     @Override
     public void onCreate(Bundle savedInstanceState){
@@ -91,7 +92,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         prepareCamera();
         initVideoCodec();
         initAudioCodec();
-        mediaMuxerCl.startMuxer();
+      //  mediaMuxerCl.startMuxer();
         //captueActivity=this;
     }
 
@@ -100,6 +101,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         super.onDestroy();
         videoCodec.destroyVideoCodec();
         audioCapture.destroyEncoder();
+        mediaMuxerCl.stopMuxuer();
     }
 
     public void initView(){
@@ -234,6 +236,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         camera.stopPreview();
         camera.release();
         camera=null;
+        mediaMuxerCl.stopMuxuer();
         android.util.Log.w("=====","camera destroy");
     }
 
@@ -243,9 +246,9 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         public void run() {
             android.util.Log.w("=====thread1","thread1 start");
             while (flag){
-                if(queue.peek()!=null&&flag){
+               /* if(queue.peek()!=null&&flag){
                    // HandleFrameData(queue.poll());
-                }
+                }*/
             }
             android.util.Log.w("=====thread1","thread1 destroy");
         }
@@ -275,7 +278,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         if(cameraPostion==1)
             ndata=AlgorithmHelper.RotateYuvDataUpandDown(ndata,width,height);
 
-        videoCodec.queueVideo.offer(ndata);
+        videoCodec.queueVideo.offer(data);
 
         /*byte[] ndata=data;
         YuvImage yuvImage=new YuvImage(ndata,ImageFormat.NV21,width,height,null);
@@ -285,7 +288,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         yuvByte=outputStream.toByteArray();
         Bitmap bitmap= BitmapFactory.decodeByteArray(yuvByte,0,yuvByte.length);
         bitmap=RotateBitmap90(bitmap);*/
-        Bitmap bitmap=AlgorithmHelper.RotateBitmap90(ndata,width,height,this);
+        Bitmap bitmap=algorithmHelper.RotateBitmap90(ndata,width,height,this);
         //bitmap=RotateBitmap90(bitmap);
         bitmap= AlgorithmHelper.ScaleBitmap(bitmap,surfaceViewSmall);
         int wid=bitmap.getWidth();

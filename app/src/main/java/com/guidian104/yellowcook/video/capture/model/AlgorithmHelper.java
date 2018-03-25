@@ -17,13 +17,19 @@ import android.view.SurfaceView;
 
 public class AlgorithmHelper {
 
+    private final static AlgorithmHelper algorithmHelper=new AlgorithmHelper();
+
+    public static AlgorithmHelper getAlgorithmHelper(){
+        return algorithmHelper;
+    }
+
     /**
      * renderscript将data数据生成bitmap，效果不错
      * @param data
      * @return
      */
     @TargetApi(17)
-    public static Bitmap RotateBitmap90(byte[] data, int height, int width, Context context){
+    public Bitmap RotateBitmap90(byte[] data, int width, int height, Context context){
         Bitmap bit=Bitmap.createBitmap(height,width,Bitmap.Config.ARGB_8888);
         RenderScript renderScript=RenderScript.create(context);
         Type.Builder builder=new Type.Builder(renderScript, Element.U8(renderScript)).setX(data.length);
