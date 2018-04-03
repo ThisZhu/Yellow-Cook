@@ -7,6 +7,7 @@ import android.media.MediaFormat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreKitKatVersion;
 import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreLollipopVersion;
 
@@ -28,6 +29,7 @@ public class AudioCodec {
     public static AudioCodec getAudioCodec(){
         return audioCodec;
     }
+    private AudioCapture audioCapture=AudioCapture.getInstace();
 
     public void startAudioCodec(int framerate,int sampleRateInHz,int channelConfig){
         bufferInfo=new MediaCodec.BufferInfo();
@@ -65,25 +67,36 @@ public class AudioCodec {
             ++frameIndex;
         }
         int outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,0);
-        if(outputBufferId==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-            audioTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
-            mediaMuxerCl.setAudioStatus(true);
-            mediaMuxerCl.startMuxer();
-        }
-        while (outputBufferId>=0){
+        do{
             ByteBuffer buffer;
-            if(isMoreLollipopVersion()){
-                buffer=mediaCodec.getOutputBuffer(outputBufferId);
-            }else {
-                buffer=outputByteBuffers[outputBufferId];
+            if(outputBufferId==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
+                startMuxer();
+            }else if(outputBufferId==MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED){
+                outputByteBuffers=mediaCodec.getOutputBuffers();
+            }else if(outputBufferId>=0) {
+                startMuxer();
+                if (isMoreLollipopVersion()) {
+                    buffer = mediaCodec.getOutputBuffer(outputBufferId);
+                } else {
+                    buffer = outputByteBuffers[outputBufferId];
+                }
+                if (!isMoreKitKatVersion()) {
+                    buffer.position(bufferInfo.offset);
+                    buffer.limit(bufferInfo.offset + bufferInfo.size);
+                }
+                onEncoderAacFrame(buffer);
+                mediaCodec.releaseOutputBuffer(outputBufferId, false);
             }
-            if(!isMoreKitKatVersion()) {
-                buffer.position(bufferInfo.offset);
-                buffer.limit(bufferInfo.offset + bufferInfo.size);
-            }
-            onEncoderAacFrame(buffer);
-            mediaCodec.releaseOutputBuffer(outputBufferId,false);
+
             outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,0);
+        }while (outputBufferId>=0);
+    }
+
+    private void startMuxer(){
+        if(!mediaMuxerCl.getAudioStatus()&&mediaMuxerCl.getMuxerInitStatus()){
+            mediaMuxerCl.setAudioStatus(true);
+            audioTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
+            mediaMuxerCl.startMuxer();
         }
     }
 
@@ -92,6 +105,7 @@ public class AudioCodec {
             return;
         mediaCodec.stop();
         mediaCodec.release();
+        mediaCodec=null;
     }
 
     private void onEncoderAacFrame(ByteBuffer byteBuffer){

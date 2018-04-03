@@ -88,10 +88,10 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         setContentView(R.layout.activity_capture);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
         initView();
-        mediaMuxerCl.initMuxer();
-        prepareCamera();
-        initVideoCodec();
-        initAudioCodec();
+       // mediaMuxerCl.initMuxer();
+       // prepareCamera();
+        //initVideoCodec();
+       // initAudioCodec();
       //  mediaMuxerCl.startMuxer();
         //captueActivity=this;
     }
@@ -99,9 +99,9 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
     @Override
     public void onDestroy(){
         super.onDestroy();
-        videoCodec.destroyVideoCodec();
-        audioCapture.destroyEncoder();
-        mediaMuxerCl.stopMuxuer();
+        //videoCodec.destroyVideoCodec();
+        //audioCapture.destroyEncoder();
+        //mediaMuxerCl.stopMuxuer();
     }
 
     public void initView(){
@@ -147,6 +147,14 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
 
     @TargetApi(16)
     public void initCamera(boolean changeflag,SurfaceTexture surfaceTexture){
+        initAudioCodec();
+        audioCapture.createAudio(frameRate,MediaRecorder.AudioSource.MIC,sampleRateHZ, AudioFormat.CHANNEL_CONFIGURATION_STEREO,AudioFormat.ENCODING_PCM_8BIT);
+        ///////////启动音频录制
+        audioCapture.startRecord();
+
+        initVideoCodec();
+
+        videoCodec.StartEncoderThread();
         flag=true;
         flag2=true;
         if(!thread.isAlive()) {
@@ -158,11 +166,6 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
             queue.poll();
         }
 
-        audioCapture.createAudio(frameRate,MediaRecorder.AudioSource.MIC,sampleRateHZ, AudioFormat.CHANNEL_CONFIGURATION_STEREO,AudioFormat.ENCODING_PCM_8BIT);
-        videoCodec.StartEncoderThread();
-
-        ///////////启动音频录制
-        audioCapture.startRecord();
 
         if(changeflag&&cameraPostion==0) {
             cameraPostion = 1;
@@ -191,7 +194,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         button_changer.setBackgroundColor(getResources().getColor(R.color.white));
         button_recorder.setText(cameraStatus);
         button_recorder.setBackgroundColor(getResources().getColor(R.color.red));
-        android.util.Log.w("=====camera","camera start");
+        android.util.Log.w("%%%%====camera","camera start");
     }
 
     private void prepareCamera(){
@@ -230,13 +233,13 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         ///////////////////停止音频录制
         audioCapture.destroyRecord();
 
+
         if(camera==null)
             return;
         camera.setPreviewCallbackWithBuffer(null);
         camera.stopPreview();
         camera.release();
         camera=null;
-        mediaMuxerCl.stopMuxuer();
         android.util.Log.w("=====","camera destroy");
     }
 

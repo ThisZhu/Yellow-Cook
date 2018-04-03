@@ -49,10 +49,14 @@ public class VideoCodec {
         this.height=height;
         this.framerate=framerate;
         MediaFormat mediaFormat=MediaFormat.createVideoFormat("video/avc",width,height);
+        ///byte[] header_sps={0,0,0,1,103,100,0,31,-84,-76,2,-128,45,-56};
+       // byte[] header_pps={0,0,0,1,104,-18,60,97,15,-1,-16,-121,-1,-8,67,-1,-4,33,-1,-2,16,-1,-1,8,127,-1,-64};
+        //mediaFormat.setByteBuffer("csd-0",ByteBuffer.wrap(header_sps));
+       // mediaFormat.setByteBuffer("csd-1",ByteBuffer.wrap(header_pps));
         mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE,width*height*5);
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE,30);
-        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,10);
+        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,1);
         try {
             mediaCodec=MediaCodec.createEncoderByType("video/avc");
         } catch (IOException e) {
@@ -65,14 +69,19 @@ public class VideoCodec {
 
     @TargetApi(16)
     public void destroyVideoCodec(){
+        if(mediaCodec==null)
+            return;
         mediaCodec.stop();
         mediaCodec.release();
+        mediaCodec=null;
     }
 
     public void StartEncoderThread(){
         flag=true;
-        if(!encodertThread.isAlive())
-             encodertThread.start();
+        if(!encodertThread.isAlive()) {
+            android.util.Log.w("%%%%====encodertThread"," start");
+            encodertThread.start();
+        }
     }
 
     public void StopEncoderThread(){
@@ -88,6 +97,9 @@ public class VideoCodec {
             int generalIndex=0;
             byte configByte[]=null;
             bufferInfo=new MediaCodec.BufferInfo();
+            if(!mediaMuxerCl.getMuxerInitStatus()){
+                mediaMuxerCl.initMuxer();
+            }
             while (flag){
                 if(queueVideo!=null&&queueVideo.size()>0){
                     inputBytes=queueVideo.poll();
@@ -112,38 +124,60 @@ public class VideoCodec {
                     mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, 0);
                     ++generalIndex;
                 }
-                int outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
-                do{
+
+                while (true){
+                    int outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
                     ByteBuffer outputBuffer;
                     if(outputBufferIndex==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-                        videoTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
-                        mediaMuxerCl.setVideoStatus(true);
-                        mediaMuxerCl.startMuxer();
+                        android.util.Log.w("%%%%MediaFORMATCHANGED","1");
+                        startMuxer();
                     }else if(outputBufferIndex==MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED){
                         outputBuffers=mediaCodec.getOutputBuffers();
-                    }else if(outputBufferIndex>=0){
-                        if((bufferInfo.flags& BUFFER_FLAG_CODEC_CONFIG)!=0){
+                    }else if(outputBufferIndex==MediaCodec.INFO_TRY_AGAIN_LATER) {
+                        break;
+                    }else if(outputBufferIndex<0) {
+
+                    }else{
+                        if(!mediaMuxerCl.getVideoStatus()){
+                            android.util.Log.w("%%%%MediaFORMATCHANGED","2");
+                            startMuxer();
+                        }
+                        if (isMoreLollipopVersion()) {
+                            outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
+                        } else {
+                            outputBuffer = outputBuffers[outputBufferIndex];
+                        }
+                        if((bufferInfo.flags&MediaCodec.BUFFER_FLAG_CODEC_CONFIG)!=0){
                             bufferInfo.size=0;
                         }
-                        if(bufferInfo.size!=0){
-                            if (!isMoreLollipopVersion()) {
-                                outputBuffer = outputBuffers[outputBufferIndex];
-                            } else {
-                                outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
-                            }
-                            if (!isMoreKitKatVersion()) {
-                                outputBuffer.position(bufferInfo.offset);
-                                outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
-                            }
+                        if (bufferInfo.size!=0) {
+                            //解决mediamuxer fail to stop()+There no sync frams for video track
+                            bufferInfo.flags=MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+
+                            outputBuffer.position(bufferInfo.offset);
+                            outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
                             onEncoderVideoFrame(outputBuffer, bufferInfo);
-                            mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                         }
-                    }
-                    outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
-                }while (outputBufferIndex>=0);
+                        mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
+                        if((bufferInfo.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0)
+                            break;
+                        }
+                }
             }
+            mediaMuxerCl.setVideoStatus(false);
+            mediaMuxerCl.stopMuxuer();
+
+            videoCodec.destroyVideoCodec();
         }
     };
+
+    private void startMuxer(){
+        if(!mediaMuxerCl.getVideoStatus()&&mediaMuxerCl.getMuxerInitStatus()){
+            videoTrackIndex=mediaMuxerCl.addTrack(mediaCodec);
+            mediaMuxerCl.setVideoStatus(true);
+            mediaMuxerCl.startMuxer();
+        }
+    }
 
     @TargetApi(18)
     private void onEncoderVideoFrame(ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo){

@@ -23,6 +23,7 @@ public class AudioCapture {
     private int sampleRateInHz;
     public Queue<byte[]> audioQueue=new LinkedList<>();
     private AudioCodec audioCodec=AudioCodec.getAudioCodec();
+    private MediaMuxerCl mediaMuxerCl=MediaMuxerCl.getMediaMuxerCl();
 
     private static final AudioCapture audioCapture=new AudioCapture();
 
@@ -43,10 +44,10 @@ public class AudioCapture {
 
     public void startRecord(){
         audioStatus=STATUS_STARTING;
-        if(!thread.isAlive())
-            thread.start();
         if(!codecThread.isAlive())
             codecThread.start();
+        if(!thread.isAlive())
+            thread.start();
     }
 
     public void startEncoder(){
@@ -60,7 +61,6 @@ public class AudioCapture {
             audioRecord.release();
             audioRecord = null;
         }
-        audioStatus = STATUS_STOP;
     }
 
     public void destroyEncoder(){
@@ -87,10 +87,17 @@ public class AudioCapture {
     Thread codecThread=new Thread(){
         @Override
         public void run(){
+            if(!mediaMuxerCl.getMuxerInitStatus()){
+                mediaMuxerCl.initMuxer();
+            }
             while (audioStatus==STATUS_STARTING){
                 if(audioQueue.peek()!=null&&audioQueue.size()>0)
                     audioCodec.onEncoderAudio(audioQueue.poll());
             }
+            mediaMuxerCl.setAudioStatus(false);
+            mediaMuxerCl.stopMuxuer();
+
+            audioCapture.destroyEncoder();
         }
     };
 }
