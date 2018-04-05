@@ -7,9 +7,8 @@ import android.media.MediaFormat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
-import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreKitKatVersion;
-import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreLollipopVersion;
+import static com.guidian104.yellowcook.video.capture.helper.SDKHelper.isMoreKitKatVersion;
+import static com.guidian104.yellowcook.video.capture.helper.SDKHelper.isMoreLollipopVersion;
 
 /**
  * Created by zhudi on 2018/3/24.
@@ -18,6 +17,7 @@ import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreLoll
 @TargetApi(21)
 public class AudioCodec {
 
+    private static final long TIMEOUT_USEC=1000;
     private int framerate;
     private int frameIndex=0;
     private static final String MIMETYPE="audio/mp4a-latm";
@@ -66,30 +66,39 @@ public class AudioCodec {
             mediaCodec.queueInputBuffer(inputBufferId,0,audioByte.length,computePositionTime(frameIndex),0);
             ++frameIndex;
         }
-        int outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,0);
-        do{
+        while (true){
             ByteBuffer buffer;
+            int outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
             if(outputBufferId==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
                 startMuxer();
             }else if(outputBufferId==MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED){
                 outputByteBuffers=mediaCodec.getOutputBuffers();
-            }else if(outputBufferId>=0) {
-                startMuxer();
+            }else if(outputBufferId==MediaCodec.INFO_TRY_AGAIN_LATER){
+                break;
+            }else if(outputBufferId<0){
+                break;
+            }else{
+                if(!mediaMuxerCl.getAudioStatus())
+                    startMuxer();
                 if (isMoreLollipopVersion()) {
                     buffer = mediaCodec.getOutputBuffer(outputBufferId);
                 } else {
                     buffer = outputByteBuffers[outputBufferId];
                 }
-                if (!isMoreKitKatVersion()) {
+                if((bufferInfo.flags&MediaCodec.BUFFER_FLAG_CODEC_CONFIG)!=0){
+                    bufferInfo.size=0;
+                }
+                if(bufferInfo.size!=0){
+                    bufferInfo.flags=MediaCodec.BUFFER_FLAG_SYNC_FRAME;
                     buffer.position(bufferInfo.offset);
                     buffer.limit(bufferInfo.offset + bufferInfo.size);
+                    onEncoderAacFrame(buffer);
                 }
-                onEncoderAacFrame(buffer);
                 mediaCodec.releaseOutputBuffer(outputBufferId, false);
+                if((bufferInfo.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0)
+                    break;
             }
-
-            outputBufferId=mediaCodec.dequeueOutputBuffer(bufferInfo,0);
-        }while (outputBufferId>=0);
+        }
     }
 
     private void startMuxer(){
@@ -115,7 +124,7 @@ public class AudioCodec {
     @TargetApi(16)
     public long computePositionTime(long frameIndex){
         long timeUs=132+frameIndex*1000000/framerate;
-        android.util.Log.w("presentationTimeUs====",Long.toString(timeUs));
+       // android.util.Log.w("presentationTimeUs====",Long.toString(timeUs));
         return timeUs;
     }
 

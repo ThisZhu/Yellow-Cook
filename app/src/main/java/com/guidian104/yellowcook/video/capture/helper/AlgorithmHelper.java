@@ -1,4 +1,4 @@
-package com.guidian104.yellowcook.video.capture.model;
+package com.guidian104.yellowcook.video.capture.helper;
 
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -162,4 +162,26 @@ public class AlgorithmHelper {
         return bitmap1;
     }
 
+    /**
+     * 如果预览格式设置为NV21,那么在MediaCodec中设置编码格式，如果编码器支持颜色格式COLOR_FormatYUV420SemiPlanar，
+     * 这两个格式都是半平面也就  是有两个平面，第一个平面是所有的Y分量，第二个平面NV21为VUVU，而 COLOR_FormatYUV420SemiPlanar
+     * 为UVUV,也就是说如果预览格式为NV21，编码颜色格式为COLOR_FormatYUV420SemiPlanar，我们在预览数据需要给编码器编码的时候，
+     * 需要转换NV21第二个平面里V和U的位置:
+     * NV21(yyyyyyyy vuvu) ----------> COLOR_FormatYUV420SemiPlanar  (yyyyyyyy uvuv)
+     * @param data
+     * @return
+     */
+    public static byte[] NV21toYUV420SP(byte[] data,int width,int height){
+        byte mid;
+        int t=width*height;
+        for(int j=0;j<height/2;j++) {
+            for (int i = t; i < t + width-1; i=i+2) {
+                mid=data[i];
+                data[i]=data[i+1];
+                data[i+1]=mid;
+            }
+            t+=width;
+        }
+        return data;
+    }
 }

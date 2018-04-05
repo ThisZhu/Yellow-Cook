@@ -3,33 +3,14 @@ package com.guidian104.yellowcook.video.capture;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ImageFormat;
-import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
-import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.media.AudioFormat;
-import android.media.AudioRecord;
-import android.media.MediaMuxer;
 import android.media.MediaRecorder;
-import android.opengl.GLES20;
-import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.os.Environment;
-import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.RenderScript;
-import android.renderscript.ScriptIntrinsicBlur;
-import android.renderscript.ScriptIntrinsicYuvToRGB;
-import android.renderscript.Type;
-import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
@@ -37,19 +18,16 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.LinearLayout;
 
 import com.guidian104.yellowcook.R;
-import com.guidian104.yellowcook.video.capture.model.AlgorithmHelper;
+import com.guidian104.yellowcook.video.capture.helper.AlgorithmHelper;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
+import static com.guidian104.yellowcook.video.capture.helper.AlgorithmHelper.NV21toYUV420SP;
 
 /**
  * Created by zhudi on 2018/3/1.
@@ -123,7 +101,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
     }
 
     private void initAudioCodec(){
-        audioCapture.createAudio(frameRate,MediaRecorder.AudioSource.MIC,sampleRateHZ, AudioFormat.CHANNEL_CONFIGURATION_STEREO,AudioFormat.ENCODING_PCM_8BIT);
+        audioCapture.createAudio(frameRate,MediaRecorder.AudioSource.DEFAULT,sampleRateHZ, AudioFormat.CHANNEL_CONFIGURATION_MONO,AudioFormat.ENCODING_PCM_16BIT);
         audioCapture.startEncoder();
     }
 
@@ -148,7 +126,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
     @TargetApi(16)
     public void initCamera(boolean changeflag,SurfaceTexture surfaceTexture){
         initAudioCodec();
-        audioCapture.createAudio(frameRate,MediaRecorder.AudioSource.MIC,sampleRateHZ, AudioFormat.CHANNEL_CONFIGURATION_STEREO,AudioFormat.ENCODING_PCM_8BIT);
+        audioCapture.createAudio(frameRate,MediaRecorder.AudioSource.MIC,sampleRateHZ, AudioFormat.CHANNEL_CONFIGURATION_MONO,AudioFormat.ENCODING_PCM_16BIT);
         ///////////启动音频录制
         audioCapture.startRecord();
 
@@ -266,7 +244,8 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
             }
             while (flag2){
                 if(queue.peek()!=null&&flag2){
-                    HandleFrameData(queue.poll());
+                   /// HandleFrameData(queue.poll());
+                    videoCodec.queueVideo.offer( NV21toYUV420SP(queue.poll(),width,height));
                 }
             }
             if(queue.peek()!=null) {
@@ -281,7 +260,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
         if(cameraPostion==1)
             ndata=AlgorithmHelper.RotateYuvDataUpandDown(ndata,width,height);
 
-        videoCodec.queueVideo.offer(data);
+        videoCodec.queueVideo.offer( NV21toYUV420SP(data,width,height));
 
         /*byte[] ndata=data;
         YuvImage yuvImage=new YuvImage(ndata,ImageFormat.NV21,width,height,null);

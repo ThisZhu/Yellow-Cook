@@ -5,16 +5,13 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
-import android.media.MediaMuxer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.Queue;
 
-import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
-import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreKitKatVersion;
-import static com.guidian104.yellowcook.video.capture.model.SDKHelper.isMoreLollipopVersion;
+import static com.guidian104.yellowcook.video.capture.helper.SDKHelper.isMoreLollipopVersion;
 
 /**
  * Created by zhudi on 2018/3/20.
@@ -49,11 +46,7 @@ public class VideoCodec {
         this.height=height;
         this.framerate=framerate;
         MediaFormat mediaFormat=MediaFormat.createVideoFormat("video/avc",width,height);
-        ///byte[] header_sps={0,0,0,1,103,100,0,31,-84,-76,2,-128,45,-56};
-       // byte[] header_pps={0,0,0,1,104,-18,60,97,15,-1,-16,-121,-1,-8,67,-1,-4,33,-1,-2,16,-1,-1,8,127,-1,-64};
-        //mediaFormat.setByteBuffer("csd-0",ByteBuffer.wrap(header_sps));
-       // mediaFormat.setByteBuffer("csd-1",ByteBuffer.wrap(header_pps));
-        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar);
+        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE,width*height*5);
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE,30);
         mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,1);
@@ -100,68 +93,68 @@ public class VideoCodec {
             if(!mediaMuxerCl.getMuxerInitStatus()){
                 mediaMuxerCl.initMuxer();
             }
-            while (flag){
-                if(queueVideo!=null&&queueVideo.size()>0){
-                    inputBytes=queueVideo.poll();
+            while (flag) {
+                if (queueVideo != null && queueVideo.size() > 0) {
+                    inputBytes = queueVideo.poll();
                 }
-                if(inputBytes==null)
-                    continue;
-                ByteBuffer[] inputBuffers=mediaCodec.getInputBuffers();
-                ByteBuffer[] outputBuffers=mediaCodec.getInputBuffers();
-                int inputBufferIndex=mediaCodec.dequeueInputBuffer(0);
-                if(inputBufferIndex>=0){
-                    pts=computePositionTime(generalIndex);
-                    ByteBuffer inputBuffer;
-                    ///////////////// 如果API小于21，APP需要重新绑定编码器的输入缓存区；
-                    ///////////////// 如果API大于21，则无需处理INFO_OUTPUT_BUFFERS_CHANGED
-                    if(isMoreLollipopVersion()){
-                        inputBuffer=mediaCodec.getInputBuffer(inputBufferIndex);
-                    }else {
-                        inputBuffer = inputBuffers[inputBufferIndex];
-                    }
-                    inputBuffer.clear();
-                    inputBuffer.put(inputBytes);
-                    mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, 0);
-                    ++generalIndex;
-                }
-
-                while (true){
-                    int outputBufferIndex=mediaCodec.dequeueOutputBuffer(bufferInfo,TIMEOUT_USEC);
-                    ByteBuffer outputBuffer;
-                    if(outputBufferIndex==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-                        android.util.Log.w("%%%%MediaFORMATCHANGED","1");
-                        startMuxer();
-                    }else if(outputBufferIndex==MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED){
-                        outputBuffers=mediaCodec.getOutputBuffers();
-                    }else if(outputBufferIndex==MediaCodec.INFO_TRY_AGAIN_LATER) {
-                        break;
-                    }else if(outputBufferIndex<0) {
-
-                    }else{
-                        if(!mediaMuxerCl.getVideoStatus()){
-                            android.util.Log.w("%%%%MediaFORMATCHANGED","2");
-                            startMuxer();
-                        }
+                if(inputBytes!=null) {
+                    ByteBuffer[] inputBuffers = mediaCodec.getInputBuffers();
+                    ByteBuffer[] outputBuffers = mediaCodec.getInputBuffers();
+                    int inputBufferIndex = mediaCodec.dequeueInputBuffer(0);
+                    if (inputBufferIndex >= 0) {
+                        pts = computePositionTime(generalIndex);
+                        ByteBuffer inputBuffer;
+                        ///////////////// 如果API小于21，APP需要重新绑定编码器的输入缓存区；
+                        ///////////////// 如果API大于21，则无需处理INFO_OUTPUT_BUFFERS_CHANGED
                         if (isMoreLollipopVersion()) {
-                            outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
+                            inputBuffer = mediaCodec.getInputBuffer(inputBufferIndex);
                         } else {
-                            outputBuffer = outputBuffers[outputBufferIndex];
+                            inputBuffer = inputBuffers[inputBufferIndex];
                         }
-                        if((bufferInfo.flags&MediaCodec.BUFFER_FLAG_CODEC_CONFIG)!=0){
-                            bufferInfo.size=0;
-                        }
-                        if (bufferInfo.size!=0) {
-                            //解决mediamuxer fail to stop()+There no sync frams for video track
-                            bufferInfo.flags=MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+                        inputBuffer.clear();
+                        inputBuffer.put(inputBytes);
+                        mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, 0);
+                        ++generalIndex;
+                    }
 
-                            outputBuffer.position(bufferInfo.offset);
-                            outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
-                            onEncoderVideoFrame(outputBuffer, bufferInfo);
-                        }
-                        mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
-                        if((bufferInfo.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0)
+                    while (true) {
+                        int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+                        ByteBuffer outputBuffer;
+                        if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                            android.util.Log.w("%%%%MediaFORMATCHANGED", "1");
+                            startMuxer();
+                        } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                            outputBuffers = mediaCodec.getOutputBuffers();
+                        } else if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
                             break;
+                        } else if (outputBufferIndex < 0) {
+                            break;
+                        } else {
+                            if (!mediaMuxerCl.getVideoStatus()) {
+                                android.util.Log.w("%%%%MediaFORMATCHANGED", "2");
+                                startMuxer();
+                            }
+                            if (isMoreLollipopVersion()) {
+                                outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
+                            } else {
+                                outputBuffer = outputBuffers[outputBufferIndex];
+                            }
+                            if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                                bufferInfo.size = 0;
+                            }
+                            if (bufferInfo.size != 0) {
+                                //解决mediamuxer fail to stop()+There no sync frams for video track
+                                bufferInfo.flags = MediaCodec.BUFFER_FLAG_SYNC_FRAME;
+
+                                outputBuffer.position(bufferInfo.offset);
+                                outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
+                                onEncoderVideoFrame(outputBuffer, bufferInfo);
+                            }
+                            mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
+                            if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0)
+                                break;
                         }
+                    }
                 }
             }
             mediaMuxerCl.setVideoStatus(false);
@@ -187,7 +180,7 @@ public class VideoCodec {
     @TargetApi(16)
     public long computePositionTime(long frameIndex){
         long timeUs=132+frameIndex*1000000/framerate;
-        android.util.Log.w("presentationTimeUs====",Long.toString(timeUs));
+       // android.util.Log.w("presentationTimeUs====",Long.toString(timeUs));
         return timeUs;
     }
 }

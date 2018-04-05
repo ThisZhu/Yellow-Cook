@@ -86,26 +86,24 @@ public class MediaMuxerCl {
             android.util.Log.w("%%%%=video and audio","is started ,mediaMuxer start");
             mediaMuxer.start();
             muxerStatus=true;
-            writeVideoIframeData();
-            writeAudioHeaderData();
+           // writeVideoIframeData();
+           // writeAudioHeaderData();
         }
     }
 
     private void writeVideoIframeData(){
-        MyBuffer myBuffer=new MyBuffer();
-        while(myBufferArrayList!=null&&myBufferArrayList.size()>0){
+        while (myBufferArrayList!=null&&myBufferArrayList.size()>0){
+            MyBuffer myBuffer=myBufferArrayList.get(0);
             android.util.Log.w("%%%%=video iframe ","is writing");
-            myBuffer=myBufferArrayList.get(0);
             mediaMuxer.writeSampleData(myBuffer.getTrackIndex(),myBuffer.getByteBuffer(),myBuffer.getBufferInfo());
             myBufferArrayList.remove(0);
             }
     }
 
     private void writeAudioHeaderData(){
-        MyBuffer myBuffer=new MyBuffer();
-        while(myAudioBufferArrayList!=null&&myAudioBufferArrayList.size()>0){
+        while (myAudioBufferArrayList!=null&&myAudioBufferArrayList.size()>0){
+            MyBuffer myBuffer=myAudioBufferArrayList.get(0);
             android.util.Log.w("%%%%=audio iframe ","is writing");
-            myBuffer=myAudioBufferArrayList.get(0);
             mediaMuxer.writeSampleData(myBuffer.getTrackIndex(),myBuffer.getByteBuffer(),myBuffer.getBufferInfo());
             myAudioBufferArrayList.remove(0);
         }
@@ -155,6 +153,7 @@ public class MediaMuxerCl {
 
     public void writeVideoData(int videoTrackIndex,ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo){
         if(muxerStatus&&!isMuxerStoping) {
+            writeAudioHeaderData();
             mediaMuxer.writeSampleData(videoTrackIndex, byteBuffer, bufferInfo);
             android.util.Log.w("========writeVideoData","starting");
         }else {
@@ -171,6 +170,7 @@ public class MediaMuxerCl {
 
     public void writeAudioData(int audioTrackIndex, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo){
         if(muxerStatus&&!isMuxerStoping) {
+            writeVideoIframeData();
             mediaMuxer.writeSampleData(audioTrackIndex, byteBuffer, bufferInfo);
             android.util.Log.w("========writeAudioData","starting");
         }else {

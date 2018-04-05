@@ -1,4 +1,4 @@
-package com.guidian104.yellowcook.video.capture.model;
+package com.guidian104.yellowcook.video.capture.helper;
 
 import android.os.Build;
 

@@ -91,8 +91,9 @@ public class AudioCapture {
                 mediaMuxerCl.initMuxer();
             }
             while (audioStatus==STATUS_STARTING){
-                if(audioQueue.peek()!=null&&audioQueue.size()>0)
+                if(audioQueue.peek()!=null&&audioQueue.size()>0) {
                     audioCodec.onEncoderAudio(audioQueue.poll());
+                }
             }
             mediaMuxerCl.setAudioStatus(false);
             mediaMuxerCl.stopMuxuer();
