@@ -55,7 +55,7 @@ public class CaptueActivity extends Activity implements View.OnClickListener,Cam
     public  MediaMuxerCl mediaMuxerCl=MediaMuxerCl.getMediaMuxerCl();
     private VideoCodec videoCodec=VideoCodec.getInstance();
     private AudioCapture audioCapture=AudioCapture.getInstace();
-    private static final int  sampleRateHZ=44100;
+    private static final int  sampleRateHZ=8000;
     private static final int frameRate=30;
     private static AlgorithmHelper algorithmHelper=AlgorithmHelper.getAlgorithmHelper();
 

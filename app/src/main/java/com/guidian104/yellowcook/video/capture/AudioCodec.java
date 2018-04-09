@@ -19,7 +19,6 @@ public class AudioCodec {
 
     private static final long TIMEOUT_USEC=1000;
     private int framerate;
-    private int frameIndex=0;
     private static final String MIMETYPE="audio/mp4a-latm";
     private MediaCodec mediaCodec;
     private MediaCodec.BufferInfo bufferInfo;
@@ -63,8 +62,7 @@ public class AudioCodec {
             }
             byteBuffer.clear();
             byteBuffer.put(audioByte,0,audioByte.length);
-            mediaCodec.queueInputBuffer(inputBufferId,0,audioByte.length,computePositionTime(frameIndex),0);
-            ++frameIndex;
+            mediaCodec.queueInputBuffer(inputBufferId,0,audioByte.length,computePositionTime(),0);
         }
         while (true){
             ByteBuffer buffer;
@@ -122,10 +120,9 @@ public class AudioCodec {
     }
 
     @TargetApi(16)
-    public long computePositionTime(long frameIndex){
-        long timeUs=132+frameIndex*1000000/framerate;
-       // android.util.Log.w("presentationTimeUs====",Long.toString(timeUs));
-        return timeUs;
+    public long computePositionTime( ){
+      //  long timeUs=132+frameIndex*1000000/framerate;
+        return System.nanoTime()/1000;
     }
 
 }

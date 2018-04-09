@@ -87,7 +87,6 @@ public class VideoCodec {
         public void run(){
             byte[] inputBytes=null;
             long pts=0;
-            int generalIndex=0;
             byte configByte[]=null;
             bufferInfo=new MediaCodec.BufferInfo();
             if(!mediaMuxerCl.getMuxerInitStatus()){
@@ -102,7 +101,7 @@ public class VideoCodec {
                     ByteBuffer[] outputBuffers = mediaCodec.getInputBuffers();
                     int inputBufferIndex = mediaCodec.dequeueInputBuffer(0);
                     if (inputBufferIndex >= 0) {
-                        pts = computePositionTime(generalIndex);
+                        pts = computePositionTime();
                         ByteBuffer inputBuffer;
                         ///////////////// 如果API小于21，APP需要重新绑定编码器的输入缓存区；
                         ///////////////// 如果API大于21，则无需处理INFO_OUTPUT_BUFFERS_CHANGED
@@ -114,7 +113,6 @@ public class VideoCodec {
                         inputBuffer.clear();
                         inputBuffer.put(inputBytes);
                         mediaCodec.queueInputBuffer(inputBufferIndex, 0, inputBytes.length, pts, 0);
-                        ++generalIndex;
                     }
 
                     while (true) {
@@ -177,10 +175,14 @@ public class VideoCodec {
        mediaMuxerCl.writeVideoData(videoTrackIndex,byteBuffer,bufferInfo);
     }
 
+
+    /**
+     * 音视频同步的关键：时间戳对齐
+     * @return
+     */
     @TargetApi(16)
-    public long computePositionTime(long frameIndex){
-        long timeUs=132+frameIndex*1000000/framerate;
-       // android.util.Log.w("presentationTimeUs====",Long.toString(timeUs));
-        return timeUs;
+    public long computePositionTime(){
+        //long timeUs=132+frameIndex*1000000/framerate;
+        return System.nanoTime()/1000;
     }
 }
