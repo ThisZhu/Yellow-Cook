@@ -30,6 +30,18 @@
         </activity>
         <activity android:name=".video.capture.CaptueActivity"
             android:launchMode="singleTask"/>
+        <activity android:name=".activity.CombineChartActivity"
+            android:launchMode="singleTask"/>
+        <activity android:name=".activity.PieChartActivity"
+            android:launchMode="singleTask"/>
+        <receiver
+            android:exported="true"
+            android:name="com.guidian104.yellowcook.MyBroadcastReceiver">
+            <intent-filter>
+                <action android:name="android.yellowcook.aa"/>
+            </intent-filter>
+        </receiver>
     </application>
+
 
 </manifest>

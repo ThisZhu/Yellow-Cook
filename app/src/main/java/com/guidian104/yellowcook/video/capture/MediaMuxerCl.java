@@ -15,7 +15,7 @@ import java.util.ArrayList;
  */
 
 @TargetApi(18)
-public class MediaMuxerCl {
+public class  MediaMuxerCl {
     private static final MediaMuxerCl mediaMuxerCl=new MediaMuxerCl();
     private boolean videoStatus=false;
     private boolean audioStatus=false;

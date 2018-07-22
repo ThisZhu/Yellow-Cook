@@ -2,4 +2,7 @@
     <string name="app_name">YellowCook</string>
     <string name="button_recorder">录屏</string>
     <string name="button_change">切换</string>
+    <string name="combine_chart">柱形图</string>
+    <string name="degree_centigrade">&#176;C</string>
+    <string name="pie_chart">饼状图</string>
 </resources>
